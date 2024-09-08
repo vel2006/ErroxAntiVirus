@@ -27,7 +27,7 @@ def InstallErroxAntivirus():
     os.mkdir(targetDirectory)
     print("Creating Antivirus file...")
     with open(f"{targetDirectory}\\ErroxAntivirus.py", "w") as file:
-        responseFromMainPage = requests.get("https://vel2006.github.io/ErroxAntivirus/installMainPageData.html")
+        responseFromMainPage = requests.get("https://vel2006.github.io/ErroxAntiVirus/installMainPageData.html")
         if responseFromMainPage.status_code == 200:
             for line in GetInbetween(responseFromMainPage.text, "<body>", "</body>"):
                 if "<p>" in line:
