@@ -29,7 +29,7 @@ def InstallErroxAntivirus():
     with open(f"{targetDirectory}\\ErroxAntivirus.py", "w") as file:
         responseFromMainPage = requests.get("https://vel2006.github.io/ErroxAntiVirus/installMainPageData.html")
         if responseFromMainPage.status_code == 200:
-            for line in GetInbetween(responseFromMainPage.text, "<body>", "</body>"):
+            for line in GetInbetween(responseFromMainPage.text, "<body>", "</body>").splitlines():
                 if "<p>" in line:
                     file.write(str(GetInbetween(line, "<p>", "</p>")) + '\n')
         else:
