@@ -30,7 +30,7 @@ As stated above, this solution is different than other commercial options. As ot
 
 ## How to use Errox AntiVirus:
 
-Before you can use Errox AntiVirus you have to run the installer.py file with admin access, it will automatically install or update any needed packages along will pulling the code for the AntiVirus from the page "https://vel2006.github.io/ErroxAntivirus/installMainPageData.html", that page can be found under the site branch. Once the install it done, it will add a folder to your base user directory which can be found at "C:\Users\<your username>\ErroxAntiVirus". It will create the antivirus file (ErroxAntivirus.py), the users file (users.txt), processes file (processes.txt) and log file (ErroxAutoRunSecurityLog.txt). To use the AntiVirus, simply run "ErroxAntivirus.py" as an administrator.
+Before you can use Errox AntiVirus you have to run the installer.py file with admin access, it will automatically install or update any needed packages along will pulling the code for the AntiVirus from the page "https://vel2006.github.io/ErroxAntiVirus/installMainPageData.html", that page can be found under the site branch. Once the install it done, it will add a folder to your base user directory which can be found at "C:\Users\<your username>\ErroxAntiVirus". It will create the antivirus file (ErroxAntivirus.py), the users file (users.txt), processes file (processes.txt) and log file (ErroxAutoRunSecurityLog.txt). To use the AntiVirus, simply run "ErroxAntivirus.py" as an administrator.
 
 ### Commands in AntiVirus:
 
