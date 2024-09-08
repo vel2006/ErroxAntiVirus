@@ -1,0 +1,545 @@
+<html>
+    <body>
+        <p>ERROXVERSION = 1.2</p>
+        <p>import os</p>
+        <p>import winreg</p>
+        <p>import win32net</p>
+        <p>from datetime import datetime</p>
+        <p>import subprocess</p>
+        <p>import ast</p>
+        <p>import psutil</p>
+        <p>import time</p>
+        <p>#Getting the users inside of the C:\Users folder</p>
+        <p>def GetUsers(GetType):</p>
+        <p>    users = []</p>
+        <p>    match GetType:</p>
+        <p>        case "dir":</p>
+        <p>            startPath = os.getcwd()</p>
+        <p>            os.chdir("C:\\Users")</p>
+        <p>            for user in os.listdir():</p>
+        <p>                users.append(user)</p>
+        <p>            os.chdir(startPath)</p>
+        <p>        case "user":</p>
+        <p>            try:</p>
+        <p>                usersToFilter = win32net.NetUserEnum(None, 0)</p>
+        <p>                for user in usersToFilter[0]:</p>
+        <p>                    users.append(user['name'])</p>
+        <p>            except Exception as error:</p>
+        <p>                print(error)</p>
+        <p>        case "all":</p>
+        <p>            usersToAdd = win32net.NetUserEnum(None, 0)</p>
+        <p>            for user in usersToAdd[0]:</p>
+        <p>                users.append(user['name'])</p>
+        <p>            startPath = os.getcwd()</p>
+        <p>            os.chdir("C:\\Users")</p>
+        <p>            for user in os.listdir():</p>
+        <p>                if user not in users:</p>
+        <p>                    users.append(user)</p>
+        <p>                else:</p>
+        <p>                    pass</p>
+        <p>    return users</p>
+        <p>#Comparing the current user list inside of the C:\Users folder to the saved list</p>
+        <p>def GetNewUsers(userFileList):</p>
+        <p>    knownUsers = []</p>
+        <p>    newUsers = []</p>
+        <p>    #Getting known users</p>
+        <p>    with open(userFileList, "r") as file:</p>
+        <p>        for line in file:</p>
+        <p>            knownUsers.append(line.strip())</p>
+        <p>        file.close()</p>
+        <p>    #Getting the current users and comparing it to the past ones</p>
+        <p>    currentUsers = GetUsers("all")</p>
+        <p>    for user in currentUsers:</p>
+        <p>        if user in knownUsers:</p>
+        <p>            pass</p>
+        <p>        else:</p>
+        <p>            newUsers.append(user)</p>
+        <p>    if len(newUsers) == 0:</p>
+        <p>        return None</p>
+        <p>    else:</p>
+        <p>        return newUsers</p>
+        <p>#Getting the creation of a file and other data</p>
+        <p>def GetFileCreation(filePath):</p>
+        <p>    #Getting generic file data</p>
+        <p>    fileStats = os.stat(filePath)</p>
+        <p>    #Getting the spesific file data</p>
+        <p>    fileCreationTime = datetime.datetime.fromtimestamp(fileStats.st_ctime)</p>
+        <p>    fileAccessTime = datetime.datetime.fromtimestamp(fileStats.st_atime)</p>
+        <p>    fileModificationTime = datetime.datetime.fromtimestamp(fileStats.st_mtime)</p>
+        <p>    #Saving and returning the values as a tuple, its faster than an array</p>
+        <p>    returnValues = (fileCreationTime, fileAccessTime, fileModificationTime)</p>
+        <p>    return returnValues</p>
+        <p>#Getting all the contents of a directory</p>
+        <p>def AllInDirecory(targetDirectory):</p>
+        <p>    startingDirectory = os.getcwd()</p>
+        <p>    os.chdir(targetDirectory)</p>
+        <p>    allFilesInTarget = os.listdir()</p>
+        <p>    directorysInTarget = []</p>
+        <p>    filesInTarget = []</p>
+        <p>    for item in allFilesInTarget:</p>
+        <p>        if os.path.isfile(item):</p>
+        <p>            filesInTarget.append(item)</p>
+        <p>        else:</p>
+        <p>            directorysInTarget.append(item)</p>
+        <p>    os.chdir(startingDirectory)</p>
+        <p>    if len(filesInTarget) > 0:</p>
+        <p>        if len(directorysInTarget) > 0:</p>
+        <p>            return filesInTarget, directorysInTarget</p>
+        <p>        else:</p>
+        <p>            return filesInTarget, None</p>
+        <p>    else:</p>
+        <p>        if len(directorysInTarget) > 0:</p>
+        <p>            return None, directorysInTarget</p>
+        <p>        else:</p>
+        <p>            return None, None</p>
+        <p>#Deleting a directory and its sub files / direcories</p>
+        <p>def DeleteDirectory(targetDirectory):</p>
+        <p>    if os.path.exists(targetDirectory):</p>
+        <p>        files, directorys = AllInDirecory(targetDirectory)</p>
+        <p>        if len(files) != 0:</p>
+        <p>            for file in files:</p>
+        <p>                try:</p>
+        <p>                    os.remove(file)</p>
+        <p>                except Exception:</p>
+        <p>                    return f"Could not delete file {file}"</p>
+        <p>        if len(directorys) != 0:</p>
+        <p>            for directory in directorys:</p>
+        <p>                DeleteDirectory(directory)</p>
+        <p>                try:</p>
+        <p>                    os.removedirs(directory)</p>
+        <p>                except Exception:</p>
+        <p>                    return f"Could not delete directory {directory}"</p>
+        <p>        return "Removed target directory and its underlings"</p>
+        <p>    else:</p>
+        <p>        return "Passed directory does not exist"</p>
+        <p>#Getting startup processes</p>
+        <p>def GetStartupProcesses(returnType):</p>
+        <p>    startupPrograms = []</p>
+        <p>    #Checking directories using keys</p>
+        <p>    keyPaths = ["SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", "SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run",</p>
+        <p>                "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce", "SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\runOnce"]</p>
+        <p>    for currentKeyPath in keyPaths:</p>
+        <p>        try:</p>
+        <p>            registerKey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, currentKeyPath, 0, winreg.KEY_READ)</p>
+        <p>            i = 0</p>
+        <p>            while True:</p>
+        <p>                try:</p>
+        <p>                    name, value, _, = winreg.EnumValue(registerKey, i)</p>
+        <p>                    match returnType:</p>
+        <p>                        case "full":</p>
+        <p>                            startupPrograms.append((name, value))</p>
+        <p>                        case "name":</p>
+        <p>                            startupPrograms.append(name)</p>
+        <p>                        case "info":</p>
+        <p>                            startupPrograms.append(value)</p>
+        <p>                    i += 1</p>
+        <p>                except OSError as error:</p>
+        <p>                    break</p>
+        <p>            winreg.CloseKey(registerKey)</p>
+        <p>        except Exception as error:</p>
+        <p>            print(f"Failed to read registery: {error}")</p>
+        <p>    #Checking task scheduler</p>
+        <p>    try:</p>
+        <p>        resultOfSearch = subprocess.run(["schtasks", "/Query", "/FO", "LIST", "/V"], capture_output=True, text=True)</p>
+        <p>        if resultOfSearch.returncode != 0:</p>
+        <p>            print("Query of tasks returned with an error.")</p>
+        <p>            pass</p>
+        <p>        else:</p>
+        <p>            tasks = resultOfSearch.stdout.splitlines()</p>
+        <p>            lineData = []</p>
+        <p>            for line in tasks:</p>
+        <p>                match returnType:</p>
+        <p>                    case "full":</p>
+        <p>                        if line.startswith("TaskName:"):</p>
+        <p>                            lineData.append(line.split(':', 1)[1].strip())</p>
+        <p>                        if line.startswith("Task To Run:"):</p>
+        <p>                            lineData.append(line.split(':', 1)[1].strip())</p>
+        <p>                            startupPrograms.append(tuple(lineData))</p>
+        <p>                            lineData = []</p>
+        <p>                    case "name":</p>
+        <p>                        if line.startswith("TaskName:"):</p>
+        <p>                            startupPrograms.append(line.split(':', 1)[1].strip())</p>
+        <p>                    case "info":</p>
+        <p>                        if line.startswith("Task To Run:"):</p>
+        <p>                            startupPrograms.append(line.split(':', 1)[1].strip())</p>
+        <p>    except Exception as error:</p>
+        <p>        print(f"An error occured: {error}")</p>
+        <p>        pass</p>
+        <p>    #Checking direcories</p>
+        <p>    directoriesToScan = ("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup", "C:\\Users\\<user>\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup")</p>
+        <p>    usersToScan = GetUsers("dir")</p>
+        <p>    try:</p>
+        <p>        usersToScan.remove("Public")</p>
+        <p>        usersToScan.remove("Default User")</p>
+        <p>        usersToScan.remove("All Users")</p>
+        <p>        usersToScan.remove("desktop.ini")</p>
+        <p>    except Exception as error:</p>
+        <p>        print(f"Error: {error}")</p>
+        <p>    for directory in directoriesToScan:</p>
+        <p>        if directory == directoriesToScan[1]:</p>
+        <p>            for user in usersToScan:</p>
+        <p>                if user != "Default":</p>
+        <p>                    targetDirectory = directory.replace("<user>", user)</p>
+        <p>                    files, directorys = AllInDirecory(targetDirectory)</p>
+        <p>                    try:</p>
+        <p>                        files.remove("desktop.ini")</p>
+        <p>                    except Exception as error:</p>
+        <p>                        print(f"Error: {error}")</p>
+        <p>                    for file in files:</p>
+        <p>                        startupPrograms.append(directory + file)</p>
+        <p>                else:</p>
+        <p>                    defaultDirectories = ("C:\\Users\\Default\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs",</p>
+        <p>                                          "C:\\Users\\Default\\AppData\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Accessibility",</p>
+        <p>                                          "C:\\Users\\Default\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Accessories",</p>
+        <p>                                          "C:\\Users\\Default\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Maintenance",</p>
+        <p>                                          "C:\\Users\\Default\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Windows PowerShell",</p>
+        <p>                                          "C:\\Users\\Default\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\System Tools")</p>
+        <p>                    for dir in defaultDirectories:</p>
+        <p>                        files, directorys = AllInDirecory(dir)</p>
+        <p>                        if files is not None:</p>
+        <p>                            for file in files:</p>
+        <p>                                startupPrograms.append(dir + file)</p>
+        <p>        else:</p>
+        <p>            files, directorys = AllInDirecory(directory)</p>
+        <p>            try:</p>
+        <p>                files.remove("desktop.ini")</p>
+        <p>            except Exception as error:</p>
+        <p>                print(f"Error: {error}")</p>
+        <p>            for file in files:</p>
+        <p>                startupPrograms.append(directory + file)</p>
+        <p>    return tuple(startupPrograms)</p>
+        <p>#Comparing the current startup tasks to the saved ones inside of the tasks file</p>
+        <p>def GetNewStartupProcesses(startupProcessesFile):</p>
+        <p>    knownProcesses = []</p>
+        <p>    newProcesses = []</p>
+        <p>    #Getting known processes</p>
+        <p>    with open(startupProcessesFile, "r") as file:</p>
+        <p>        for line in file:</p>
+        <p>            content = ast.literal_eval(line)</p>
+        <p>            knownProcesses.append(content[0])</p>
+        <p>    #Getting new processes and comparing it to the known ones</p>
+        <p>    processesNames = GetStartupProcesses("names")</p>
+        <p>    for process in processesNames:</p>
+        <p>        if process in knownProcesses:</p>
+        <p>            pass</p>
+        <p>        else:</p>
+        <p>            newProcesses.append(process)</p>
+        <p>    if len(newProcesses) == 0:</p>
+        <p>        return None</p>
+        <p>    else:</p>
+        <p>        return newProcesses</p>
+        <p>#Well, getting the currently running processes...Its in the name...</p>
+        <p>def GetRunningProcesses(returnType):</p>
+        <p>    processes = []</p>
+        <p>    match returnType:</p>
+        <p>        case 0:</p>
+        <p>            for process in psutil.process_iter(['pid', 'name', 'username', 'cpu_percent', 'memory_info']):</p>
+        <p>                try:</p>
+        <p>                    if process.info['name'] in processes or process.info['pid'] in processes:</p>
+        <p>                        pass</p>
+        <p>                    else:</p>
+        <p>                        processes.append(tuple(process.info))</p>
+        <p>                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess) as error:</p>
+        <p>                    print(f"Error: {error}")</p>
+        <p>            return processes</p>
+        <p>        case 1:</p>
+        <p>            for process in psutil.process_iter(['name']):</p>
+        <p>                try:</p>
+        <p>                    if process.info['name'] in processes:</p>
+        <p>                        print("Not adding:{process}")</p>
+        <p>                    else:</p>
+        <p>                        processes.append(process.info)</p>
+        <p>                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess) as error:</p>
+        <p>                    print(f"Error: {error}")</p>
+        <p>            return processes</p>
+        <p>        case 2:</p>
+        <p>            for process in psutil.process_iter(['username', 'pid']):</p>
+        <p>                try:</p>
+        <p>                    if process.info['pid'] in processes:</p>
+        <p>                        pass</p>
+        <p>                    else:</p>
+        <p>                        processes.append(process.info)</p>
+        <p>                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess) as error:</p>
+        <p>                    print(f"Error: {error}")</p>
+        <p>            return processes</p>
+        <p>        case 3:</p>
+        <p>            for process in psutil.process_iter(['username', 'name', 'pid']):</p>
+        <p>                try:</p>
+        <p>                    if process.info['name'] in processes or process.info['pid'] in processes:</p>
+        <p>                        pass</p>
+        <p>                    else:</p>
+        <p>                        processes.append(process.info)</p>
+        <p>                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess) as error:</p>
+        <p>                    print(f"Error: {error}")</p>
+        <p>            return processes</p>
+        <p>        case 4:</p>
+        <p>            for process in psutil.process_iter(['name', 'pid']):</p>
+        <p>                try:</p>
+        <p>                    if process.info['name'] in processes or process.info['pid'] in processes:</p>
+        <p>                        pass</p>
+        <p>                    else:</p>
+        <p>                        processes.append(process.info)</p>
+        <p>                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess) as error:</p>
+        <p>                    print(f"Error: {error}")</p>
+        <p>            return processes</p>
+        <p>        case 5:</p>
+        <p>            for process in psutil.process_iter(['pid']):</p>
+        <p>                try:</p>
+        <p>                    if process.info['pid'] in processes:</p>
+        <p>                        pass</p>
+        <p>                    else:</p>
+        <p>                        processes.append(process.info)</p>
+        <p>                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess) as error:</p>
+        <p>                    print(f"Error: {error}")</p>
+        <p>            return processes</p>
+        <p>#Kills a process</p>
+        <p>def KillProcess(targetProcessPid):</p>
+        <p>    try:</p>
+        <p>        os.system(f"taskkill /F /PID {targetProcessPid} > NUL 2>&1")</p>
+        <p>        return f"Proccess PID: {targetProcessPid} killed."</p>
+        <p>    except Exception as error:</p>
+        <p>        return f"Error: {error}"</p>
+        <p>#Checking to see if the current running processes are allowed.</p>
+        <p>def GetNewRunningProcesses(allowedProcessesFile, threatMode):</p>
+        <p>    knownProcesses = []</p>
+        <p>    unknownProcess = []</p>
+        <p>    with open(allowedProcessesFile, "r") as file:</p>
+        <p>        for line in file:</p>
+        <p>            knownProcesses.append(line.strip())</p>
+        <p>        file.close()</p>
+        <p>    runningProcesses = GetRunningProcesses(4)</p>
+        <p>    for process in runningProcesses:</p>
+        <p>        if process['name'] not in knownProcesses and process != '':</p>
+        <p>            unknownProcess.append(process)</p>
+        <p>        else:</p>
+        <p>            pass</p>
+        <p>    if threatMode == 1:</p>
+        <p>        for process in unknownProcess:</p>
+        <p>            print(f"Name: {process['name']}, PID: {process['pid']}")</p>
+        <p>            KillProcess(process['pid'])</p>
+        <p>    else:</p>
+        <p>        return unknownProcess</p>
+        <p>#Kills a user account</p>
+        <p>def KillUser(username):</p>
+        <p>    print("Work in progress")</p>
+        <p>    if username in GetUsers("dir"):</p>
+        <p>        result = DeleteDirectory(f"C:\\Users\\{username}")</p>
+        <p>        match result:</p>
+        <p>            case "Removed target directory and its underlings":</p>
+        <p>                pass</p>
+        <p>            case "Passed directory does not exist":</p>
+        <p>                return "Passed directory does not exist"</p>
+        <p>            case _ if "Could not delete file" in result:</p>
+        <p>                return result</p>
+        <p>            case _ if "Could not delete directory" in result:</p>
+        <p>                return result</p>
+        <p>    else:</p>
+        <p>        print("User directory doesnt exist, continuing with killing user.")</p>
+        <p>    if username in GetUsers("user"):</p>
+        <p>        try:</p>
+        <p>            win32net.NetUserDel(None, username) </p>
+        <p>            return f"Killed User: {username}"</p>
+        <p>        except Exception as error:</p>
+        <p>            return f"Error: {error}"</p>
+        <p>    else:</p>
+        <p>        print("Username does not exist")</p>
+        <p>#Will handle all of the logic of the script, will run everything but adding users / processes</p>
+        <p>def AutomatedRun(allowedProcessesFile, allowedUsersFile, threatMode):</p>
+        <p>    print("Work in progress")</p>
+        <p>    users = []</p>
+        <p>    processes = []</p>
+        <p>    with open(f"C:\\Users{os.getlogin()}\\ErroxAntiVirus\\ErroxAutoRunSecurityLog.txt", "w") as logFile:</p>
+        <p>        #Get users</p>
+        <p>        with open(allowedUsersFile, "r") as file:</p>
+        <p>            for line in file:</p>
+        <p>                users.append(line.split())</p>
+        <p>        #Get processes</p>
+        <p>        with open(allowedProcessesFile, "r") as file:</p>
+        <p>            for line in file:</p>
+        <p>                processes.append(line)</p>
+        <p>        #If in danger mode</p>
+        <p>        if threatMode == 1:</p>
+        <p>            logFile.write(f"{datetime.now().date()}/{datetime.now().time()} | Attempting to start automated run with threat mode enabled.")</p>
+        <p>            try:</p>
+        <p>                while True:</p>
+        <p>                    #Kill new users with no prompt</p>
+        <p>                    collectedUsers = GetUsers("all")</p>
+        <p>                    for user in collectedUsers:</p>
+        <p>                        if user not in users:</p>
+        <p>                            if "Killed User:" in KillUser(user):</p>
+        <p>                                logFile.write(f"{datetime.now().date()}/{datetime.now().time()} | Removed user: {user} with no prompt")</p>
+        <p>                            else:</p>
+        <p>                                logFile.write(f"{datetime.now().date()}/{datetime.now().time()} | Failed to removed user: {user} with no prompt, inspect by hand")</p>
+        <p>                    #Kill new processes with no prompt</p>
+        <p>                    collectedProcesses = GetNewRunningProcesses(allowedProcessesFile, 0)</p>
+        <p>                    for process in collectedProcesses:</p>
+        <p>                        if process not in processes:</p>
+        <p>                            response = KillProcess(process['pid'])</p>
+        <p>                            if "Error:" not in response:</p>
+        <p>                                logFile.write(f"{datetime.now().date()}/{datetime.now().time()} | Killed process: {process} with no prompt")</p>
+        <p>                            else:</p>
+        <p>                                logFile.write(f"{datetime.now().date()}/{datetime.now().time()} | Failed to kill process: {process} with no prompt, inspect by hand")</p>
+        <p>                    #Remove unknown startup proccesses</p>
+        <p>                    #Work in progress...</p>
+        <p>            except Exception as error:</p>
+        <p>                logFile.write(f"{datetime.now().date()}/{datetime.now().time()} | Encountered error with fully automated run: {error}")</p>
+        <p>        else:</p>
+        <p>            logFile.write(f"{datetime.now().date()}/{datetime.now().time()} | Attempting to start automated run with threat mode disabled.")</p>
+        <p>            try:</p>
+        <p>                while True:</p>
+        <p>                    #Kill new users with no prompt</p>
+        <p>                    collectedUsers = GetUsers("all")</p>
+        <p>                    for user in collectedUsers:</p>
+        <p>                        if user not in users:</p>
+        <p>                            killUser = input(f"Do you wish to kill user: {user} (1/0)\n>")</p>
+        <p>                            if killUser == 1:</p>
+        <p>                                if "Killed User:" in KillUser(user):</p>
+        <p>                                    logFile.write(f"{datetime.now().date()}/{datetime.now().time()} | Removed user: {user} with prompt")</p>
+        <p>                                else:</p>
+        <p>                                    logFile.write(f"{datetime.now().date()}/{datetime.now().time()} | Failed to removed user: {user} with prompt, inspect by hand")</p>
+        <p>                            else:</p>
+        <p>                                logFile.write(f"{datetime.now().date()}/{datetime.now().time()} | Remove user: {user} denied by user")</p>
+        <p>                    #Kill new processes with no prompt</p>
+        <p>                    collectedProcesses = GetNewRunningProcesses(allowedProcessesFile, 0)</p>
+        <p>                    for process in collectedProcesses:</p>
+        <p>                        if process not in processes:</p>
+        <p>                            killProcess = input(f"Do you wish to kill process: {process} (1/0)\n>")</p>
+        <p>                            if killProcess == 1:</p>
+        <p>                                response = KillProcess(process['pid'])</p>
+        <p>                                if "Error:" not in response:</p>
+        <p>                                    logFile.write(f"{datetime.now().date()}/{datetime.now().time()} | Killed process: {process} with prompt")</p>
+        <p>                                else:</p>
+        <p>                                    logFile.write(f"{datetime.now().date()}/{datetime.now().time()} | Failed to kill process: {process} with prompt, inspect by hand")</p>
+        <p>                            else:</p>
+        <p>                                logFile.write(f"{datetime.now().date()}/{datetime.now().time()} | Kill process: {process} denied by user")</p>
+        <p>                    #Remove unknown startup proccesses</p>
+        <p>                    #Work in progress...</p>
+        <p>            except Exception as error:</p>
+        <p>                logFile.write(f"{datetime.now().date()}/{datetime.now().time()} | Encountered error with fully automated run: {error}")</p>
+        <p>            logFile.close()</p>
+        <p>#Script's user end logic</p>
+        <p>def MainRun():</p>
+        <p>    while True:</p>
+        <p>        print("Input your command choice:")</p>
+        <p>        choice = input(">")</p>
+        <p>        match choice:</p>
+        <p>            case "Help":</p>
+        <p>                print("Help page:\nCommand  | What it does / Output")</p>
+        <p>                print("Scan     | Scans for all running processes and prints the ones that are running\nStart    | Scans for all processes that run on startup")</p>
+        <p>                print("Purge    | Kills ANY process not in the process white list (only use if you know what your doing)\nHelp     | How would you not know what this does?")</p>
+        <p>                print("User     | Looks for any new users outside of whitelist\nAddP     | Adds all running processes to whitelist\nAddU     | Adds all user\'s to whitelist")</p>
+        <p>                print("Kill     | Removes user's directory and account from system\nKILL     | Removes ANY UNKNOWN USER's directory and account from system (ONLY USE IF YOU KNOW WHAT YOUR DOING)")</p>
+        <p>                print("Auto     | Automates all commands. Will purge unknown processes, scan for new users and kill new users (only for setup and leave devices)")</p>
+        <p>                print("End      | Stops this script.")</p>
+        <p>            case "Scan":</p>
+        <p>                print("Starting process scan...")</p>
+        <p>                time.sleep(0.5)</p>
+        <p>                processes = GetRunningProcesses(4)</p>
+        <p>                print("Scan complete!")</p>
+        <p>                for process in processes:</p>
+        <p>                    print(f"Process name: {process['name']}, Process PID: {process['pid']}")</p>
+        <p>            case "Start":</p>
+        <p>                print("Starting startup process scan...")</p>
+        <p>                time.sleep(0.5)</p>
+        <p>                processes = GetStartupProcesses("name")</p>
+        <p>                print("Scan complete!")</p>
+        <p>                for process in processes:</p>
+        <p>                    print(f"Process name: {process}")</p>
+        <p>            case "Purge":</p>
+        <p>                print("Starting process purge...")</p>
+        <p>                time.sleep(0.5)</p>
+        <p>                while True:</p>
+        <p>                    print("Do you wish to have the script keep puring until it\'s closed? (1/0)")</p>
+        <p>                    foreverRun = input(">")</p>
+        <p>                    if foreverRun == "1" or foreverRun == "0":</p>
+        <p>                        break</p>
+        <p>                if foreverRun == 1:</p>
+        <p>                    print ("Starting forever loop of purge.")</p>
+        <p>                    while True:</p>
+        <p>                        processes = GetNewRunningProcesses(f"C:\\Users{os.getlogin()}\\ErroxAntiVirus\\processes.txt", 1)</p>
+        <p>                else:</p>
+        <p>                    processes = GetNewRunningProcesses(f"C:\\Users{os.getlogin()}\\ErroxAntiVirus\\processes.txt", 1)</p>
+        <p>                    print("Purge complete!")</p>
+        <p>            case "User":</p>
+        <p>                print("Starting user scan...")</p>
+        <p>                time.sleep(0.5)</p>
+        <p>                users = GetNewUsers(f"C:\\Users{os.getlogin()}\\ErroxAntiVirus\\users.txt")</p>
+        <p>                print("User scan complete!")</p>
+        <p>                for user in users:</p>
+        <p>                    print(f"User: {user}")</p>
+        <p>            case "Kill":</p>
+        <p>                print("Starting killing of user...")</p>
+        <p>                time.sleep(0.5)</p>
+        <p>                choices = GetUsers("all")</p>
+        <p>                while True:</p>
+        <p>                    print(f"Which user do you wish to kill:\n{choices}")</p>
+        <p>                    userToKill = input(">")</p>
+        <p>                    if userToKill in choices:</p>
+        <p>                        KillUser(userToKill)</p>
+        <p>                        print(f"Killing of user: {userToKill} done!")</p>
+        <p>                        break</p>
+        <p>                    else:</p>
+        <p>                        print("Error: unknown user.")</p>
+        <p>            case "KILL":</p>
+        <p>                print("Starting KILLING of all unknown users...")</p>
+        <p>                time.sleep(0.5)</p>
+        <p>                unknownUsers = GetNewUsers(f"C:\\Users{os.getlogin()}\\ErroxAntiVirus\\users.txt")</p>
+        <p>                for user in unknownUsers:</p>
+        <p>                    print(f"Killing user: {user}")</p>
+        <p>                    KillUser(user)</p>
+        <p>                print(f"KILLing of users: {unknownUsers} done!")</p>
+        <p>            case "Auto":</p>
+        <p>                while True:</p>
+        <p>                    print("Do you want a prompt during auto run? (Yes / No)")</p>
+        <p>                    runType = input(">")</p>
+        <p>                    if runType != "Yes" and runType != "No":</p>
+        <p>                        print("Error: unknown input run type. Options are \"Yes\" and \"No\"")</p>
+        <p>                    else:</p>
+        <p>                        if runType == "No":</p>
+        <p>                            AutomatedRun(f"C:\\Users{os.getlogin()}\\ErroxAntiVirus\\processes.txt", f"C:\\Users{os.getlogin()}\\ErroxAntiVirus\\users.txt", 1)</p>
+        <p>                        else:</p>
+        <p>                            AutomatedRun(f"C:\\Users{os.getlogin()}\\ErroxAntiVirus\\processes.txt", f"C:\\Users{os.getlogin()}\\ErroxAntiVirus\\users.txt", 0)</p>
+        <p>            case "AddP":</p>
+        <p>                print("Collecting running processes...")</p>
+        <p>                time.sleep(0.5)</p>
+        <p>                processes = GetRunningProcesses(1)</p>
+        <p>                print("Collection complete!")</p>
+        <p>                time.sleep(0.5)</p>
+        <p>                print("Adding processes to whitelist...")</p>
+        <p>                time.sleep(0.5)</p>
+        <p>                with open(f"C:\\Users{os.getlogin()}\\ErroxAntiVirus\\processes.txt", "r+") as file:</p>
+        <p>                    file.truncate(0)</p>
+        <p>                with open(f"C:\\Users{os.getlogin()}\\ErroxAntiVirus\\processes.txt", "w") as file:</p>
+        <p>                    for process in processes:</p>
+        <p>                        file.write(f"{process['name']}\n")</p>
+        <p>                    file.close()</p>
+        <p>                print("Adding processes to whitelist complete!")</p>
+        <p>            case "AddU":</p>
+        <p>                print("Collecting users...")</p>
+        <p>                time.sleep(0.5)</p>
+        <p>                users = GetUsers("all")</p>
+        <p>                print("Collection complete!")</p>
+        <p>                time.sleep(0.5)</p>
+        <p>                print("Adding users to whitelist...")</p>
+        <p>                time.sleep(0.5)</p>
+        <p>                with open(f"C:\\Users{os.getlogin()}\\ErroxAntiVirus\\users.txt", "r+") as file:</p>
+        <p>                    file.truncate(0)</p>
+        <p>                with open(f"C:\\Users{os.getlogin()}\\ErroxAntiVirus\\users.txt", "w") as file:</p>
+        <p>                    for user in users:</p>
+        <p>                        file.write(f"{user}\n")</p>
+        <p>                    file.close()</p>
+        <p>                print("Adding users to whitelist complete!")</p>
+        <p>            case "End":</p>
+        <p>                print("Ending script...")</p>
+        <p>                time.sleep(0.5)</p>
+        <p>                break</p>
+        <p>            case _:</p>
+        <p>                print("Error: Invalid selection, input \"Help\" for allowed inputs.")</p>
+        <p>print("ERROX ANTIVIRUS\nVersion: 1.0\nProgramed by: That1EthicalHacker")</p>
+        <p>print("Hello user, this is Errox Antivirus! The worst (and best) proof of concept antivirus you will never use!")</p>
+        <p>print("This is not ment to be use in a real enviorment and only should be used for studdying")</p>
+        <p>print("For the help page type \"Help\"")</p>
+        <p>print(f"Thanks for using Errox Antivirus Version {ERROXVERSION}!")</p>
+        <p>MainRun()</p>
+    </body>
+</html>
